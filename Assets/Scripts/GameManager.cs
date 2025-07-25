@@ -22,6 +22,7 @@ public class GameManager : NetworkBehaviour
     }
 
     private PlayerType localPlayerType;
+    private PlayerType currentPlayablePlayerType;
 
     private void Awake()
     {
@@ -42,17 +43,48 @@ public class GameManager : NetworkBehaviour
         {
             localPlayerType = PlayerType.Circle;
         }
+
+        if (IsServer)
+        {
+            currentPlayablePlayerType = PlayerType.Cross;
+        }
     }
 
-    public void ClickedOnGridPosition(int x, int y)
+    [Rpc(SendTo.Server)]
+    public void ClickedOnGridPositionRpc(int x, int y, PlayerType playerType)
     {
         Debug.Log("Grid (" + x + ", " + y + ") Clicked!");
+        // this function needs to be run on server because,
+        // if it runs locally, client will not ever get a chance to play
+        // since currentPlayablePlayerType is changed only on client. (please observe it by dry-run)
+        if (playerType != currentPlayablePlayerType)
+        {
+            return;
+        }
+
         OnClickedOnGridPosition?.Invoke(this, new OnClickedOnGridPositionArgs
         {
             x = x,
             y = y,
-            playerType = localPlayerType
+            playerType = playerType
         });
+
+        switch (currentPlayablePlayerType)
+        {
+            case PlayerType.Cross:
+                currentPlayablePlayerType = PlayerType.Circle;
+                break;
+            case PlayerType.Circle:
+                currentPlayablePlayerType = PlayerType.Cross;
+                break;
+            default:
+                Debug.LogError("currentPlayablePlayerType is None!");
+                break;
+        }
     }
 
+    public PlayerType GetLocalPlayerType()
+    {
+        return localPlayerType;
+    }
 }
